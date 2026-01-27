@@ -6,37 +6,67 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Loader2, AlertCircle, Info } from 'lucide-react';
+import { MessageSquare, Loader2, AlertCircle, Info, Eye, EyeOff, CheckCircle } from 'lucide-react';
 
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  const { login, register, isConfigured } = useAuth();
+  const { login, register, resetPassword, isConfigured } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
-      if (isLogin) {
+      if (isForgotPassword) {
+        await resetPassword(email);
+        setSuccess('Password reset email sent! Check your inbox.');
+        setTimeout(() => {
+          setIsForgotPassword(false);
+          setIsLogin(true);
+          setSuccess('');
+        }, 3000);
+      } else if (isLogin) {
         await login(email, password);
+        navigate('/dashboard');
       } else {
         await register(email, password, displayName);
+        navigate('/dashboard');
       }
-      navigate('/dashboard');
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
       setError(errorMessage);
       setTimeout(() => setError(''), 5000);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleModeSwitch = (mode: 'login' | 'register' | 'forgot') => {
+    setError('');
+    setSuccess('');
+    setShowPassword(false);
+    
+    if (mode === 'forgot') {
+      setIsForgotPassword(true);
+      setIsLogin(false);
+    } else if (mode === 'login') {
+      setIsForgotPassword(false);
+      setIsLogin(true);
+    } else {
+      setIsForgotPassword(false);
+      setIsLogin(false);
     }
   };
 
@@ -58,10 +88,12 @@ const Login = () => {
         <Card className="w-full max-w-md animate-slide-up border-border/50 shadow-card gradient-card">
           <CardHeader className="space-y-2 text-center">
             <CardTitle className="text-2xl font-bold text-foreground">
-              {isLogin ? 'Welcome back' : 'Create account'}
+              {isForgotPassword ? 'Reset Password' : isLogin ? 'Welcome back' : 'Create account'}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              {isLogin
+              {isForgotPassword
+                ? 'Enter your email to receive a password reset link'
+                : isLogin
                 ? 'Sign in to manage your chatbots'
                 : 'Get started with your AI chatbot platform'}
             </CardDescription>
@@ -92,7 +124,14 @@ const Login = () => {
                 </div>
               )}
 
-              {!isLogin && (
+              {success && (
+                <div className="flex items-center gap-2 rounded-lg bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400 animate-fade-in">
+                  <CheckCircle className="h-4 w-4 shrink-0" />
+                  <span>{success}</span>
+                </div>
+              )}
+
+              {!isLogin && !isForgotPassword && (
                 <div className="space-y-2">
                   <Label htmlFor="displayName" className="text-foreground">Display Name</Label>
                   <Input
@@ -101,7 +140,7 @@ const Login = () => {
                     placeholder="John Doe"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    required={!isLogin}
+                    required={!isLogin && !isForgotPassword}
                     className="h-11 bg-background/50 border-input focus:border-primary transition-colors"
                   />
                 </div>
@@ -120,19 +159,46 @@ const Login = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="h-11 bg-background/50 border-input focus:border-primary transition-colors"
-                />
-              </div>
+              {!isForgotPassword && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-foreground">Password</Label>
+                    {isLogin && (
+                      <button
+                        type="button"
+                        onClick={() => handleModeSwitch('forgot')}
+                        className="text-xs text-primary hover:underline transition-colors"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="h-11 bg-background/50 border-input focus:border-primary transition-colors pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <Button
                 type="submit"
@@ -142,25 +208,45 @@ const Login = () => {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isLogin ? 'Signing in...' : 'Creating account...'}
+                    {isForgotPassword
+                      ? 'Sending reset link...'
+                      : isLogin
+                      ? 'Signing in...'
+                      : 'Creating account...'}
                   </>
                 ) : (
-                  isLogin ? 'Sign In' : 'Create Account'
+                  isForgotPassword
+                    ? 'Send Reset Link'
+                    : isLogin
+                    ? 'Sign In'
+                    : 'Create Account'
                 )}
               </Button>
 
               <div className="text-center text-sm text-muted-foreground">
-                {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsLogin(!isLogin);
-                    setError('');
-                  }}
-                  className="font-medium text-primary hover:underline transition-colors"
-                >
-                  {isLogin ? 'Sign up' : 'Sign in'}
-                </button>
+                {isForgotPassword ? (
+                  <>
+                    Remember your password?{' '}
+                    <button
+                      type="button"
+                      onClick={() => handleModeSwitch('login')}
+                      className="font-medium text-primary hover:underline transition-colors"
+                    >
+                      Sign in
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
+                    <button
+                      type="button"
+                      onClick={() => handleModeSwitch(isLogin ? 'register' : 'login')}
+                      className="font-medium text-primary hover:underline transition-colors"
+                    >
+                      {isLogin ? 'Sign up' : 'Sign in'}
+                    </button>
+                  </>
+                )}
               </div>
             </form>
           </CardContent>

@@ -5,8 +5,6 @@
 @tailwind utilities;
 
 
-/* Chatbot Platform Design System - White & Green Theme */
-
 @layer base {
   :root {
     --background: 0 0% 100%;
